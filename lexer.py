@@ -1,33 +1,61 @@
 # WanX Lexer – Completely Original Vocabulary
 # Keywords chosen to avoid resemblance to any major programming language
+# Version 0.3 – Expanded for full systems & AI construction capability
 
 from enum import Enum, auto
 
 class TokenType(Enum):
+    # Literals
     NUMBER     = auto()
     IDENTIFIER = auto()
     STRING     = auto()
+
+    # Operators
     PLUS       = auto()
     MINUS      = auto()
     STAR       = auto()
     SLASH      = auto()
+    PERCENT    = auto()
     EQUAL      = auto()
-    LPAREN     = auto()
-    RPAREN     = auto()
     EQEQ       = auto()
     NOTEQ      = auto()
     LT         = auto()
     GT         = auto()
     LTE        = auto()
     GTE        = auto()
-    PULSE      = auto()
-    FORGE      = auto()
-    PROBE      = auto()
-    PATH       = auto()
-    SHADOW     = auto()
-    CLOSE      = auto()
-    YES        = auto()
-    NO         = auto()
+
+    # Delimiters
+    LPAREN     = auto()
+    RPAREN     = auto()
+    LBRACKET   = auto()
+    RBRACKET   = auto()
+    LBRACE     = auto()
+    RBRACE     = auto()
+    COMMA      = auto()
+    DOT        = auto()
+    COLON      = auto()
+
+    # Original Keywords (core)
+    PULSE      = auto()   # print / output
+    FORGE      = auto()   # variable declaration
+    PROBE      = auto()   # if
+    PATH       = auto()   # then
+    SHADOW     = auto()   # else
+    CLOSE      = auto()   # end of block
+    YES        = auto()   # true
+    NO         = auto()   # false
+
+    # New original keywords for power
+    WEAVE      = auto()   # function definition
+    EMIT       = auto()   # return from function
+    ORBIT      = auto()   # while loop
+    BREAK      = auto()   # break from loop
+    CONTINUE   = auto()   # continue loop
+    AND        = auto()   # logical and
+    OR         = auto()   # logical or
+    NOT        = auto()   # logical not
+
+    # Structural
     NEWLINE    = auto()
     EOF        = auto()
 
@@ -45,14 +73,22 @@ class Token:
 
 
 KEYWORDS = {
-    "pulse":  TokenType.PULSE,
-    "forge":  TokenType.FORGE,
-    "probe":  TokenType.PROBE,
-    "path":   TokenType.PATH,
-    "shadow": TokenType.SHADOW,
-    "close":  TokenType.CLOSE,
-    "yes":    TokenType.YES,
-    "no":     TokenType.NO,
+    "pulse":    TokenType.PULSE,
+    "forge":    TokenType.FORGE,
+    "probe":    TokenType.PROBE,
+    "path":     TokenType.PATH,
+    "shadow":   TokenType.SHADOW,
+    "close":    TokenType.CLOSE,
+    "yes":      TokenType.YES,
+    "no":       TokenType.NO,
+    "weave":    TokenType.WEAVE,
+    "emit":     TokenType.EMIT,
+    "orbit":    TokenType.ORBIT,
+    "break":    TokenType.BREAK,
+    "continue": TokenType.CONTINUE,
+    "and":      TokenType.AND,
+    "or":       TokenType.OR,
+    "not":      TokenType.NOT,
 }
 
 
@@ -85,6 +121,7 @@ class Lexer:
             if char in ' \t\r':
                 self.advance()
             elif char == ':' and self.peek(1) == ':':
+                # :: comment until end of line
                 self.advance()
                 self.advance()
                 while self.peek() not in '\n\0':
@@ -121,16 +158,18 @@ class Lexer:
             self.add_token(token_type)
 
     def string(self):
-        self.advance()
+        self.advance()  # consume opening "
         start = self.pos
         while self.peek() not in '"\0':
             if self.peek() == '\n':
                 self.line += 1
+            if self.peek() == '\\':
+                self.advance()  # skip escape for now, keep simple
             self.advance()
         if self.peek() == '\0':
             raise SyntaxError(f"Unterminated string on line {self.line}")
         value = self.source[start:self.pos]
-        self.advance()
+        self.advance()  # closing "
         self.add_token(TokenType.STRING, value)
 
     def tokenize(self):
@@ -158,6 +197,7 @@ class Lexer:
                 self.string()
                 continue
 
+            # Two-character operators
             if char == '=' and self.peek(1) == '=':
                 self.advance(); self.advance()
                 self.add_token(TokenType.EQEQ)
@@ -175,14 +215,23 @@ class Lexer:
                 self.add_token(TokenType.GTE)
                 continue
 
+            # Single-character
             single = {
                 '+': TokenType.PLUS,
                 '-': TokenType.MINUS,
                 '*': TokenType.STAR,
                 '/': TokenType.SLASH,
+                '%': TokenType.PERCENT,
                 '=': TokenType.EQUAL,
                 '(': TokenType.LPAREN,
                 ')': TokenType.RPAREN,
+                '[': TokenType.LBRACKET,
+                ']': TokenType.RBRACKET,
+                '{': TokenType.LBRACE,
+                '}': TokenType.RBRACE,
+                ',': TokenType.COMMA,
+                '.': TokenType.DOT,
+                ':': TokenType.COLON,
                 '<': TokenType.LT,
                 '>': TokenType.GT,
             }
