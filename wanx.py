@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 WanX Programming Language
-Version 0.2 – Original vocabulary
+Version 0.3 – Original vocabulary, powerful enough to construct complete systems and AI foundations
 """
 
 import sys
@@ -34,8 +34,9 @@ def run_file(filename: str):
     run(source, interpreter)
 
 def run_repl():
-    print("WanX v0.2  –  Type 'exit' or Ctrl+C to quit")
-    print("-" * 40)
+    print("WanX v0.3  –  Original language for building systems & AI from scratch")
+    print("Type 'exit' or Ctrl+C to quit")
+    print("-" * 55)
     interpreter = Interpreter()
 
     while True:
