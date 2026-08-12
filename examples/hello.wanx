@@ -1,0 +1,19 @@
+:: WanX Example – Fully original language
+
+pulse "Hello from WanX!"
+
+forge name = "Creator"
+pulse "Welcome, " + name
+
+forge a = 10
+forge b = 3
+
+pulse a + b
+pulse a * b
+pulse a / b
+
+probe a > b path
+    pulse "a is bigger than b"
+shadow
+    pulse "a is not bigger"
+close
