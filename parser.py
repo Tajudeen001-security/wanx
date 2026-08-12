@@ -1,7 +1,10 @@
 # WanX Parser – Original syntax
 # Structure: probe ... path ... shadow ... close
+# Version 0.3 – Functions, loops, lists, logical ops for full system & AI building
 
 from lexer import TokenType
+
+# ---------- AST Nodes ----------
 
 class NumberNode:
     def __init__(self, value):
@@ -49,6 +52,49 @@ class BlockNode:
     def __init__(self, statements):
         self.statements = statements
 
+class WeaveNode:          # function definition
+    def __init__(self, name, params, body):
+        self.name = name
+        self.params = params
+        self.body = body
+
+class EmitNode:           # return
+    def __init__(self, value=None):
+        self.value = value
+
+class OrbitNode:          # while loop
+    def __init__(self, condition, body):
+        self.condition = condition
+        self.body = body
+
+class BreakNode:
+    pass
+
+class ContinueNode:
+    pass
+
+class CallNode:           # function call
+    def __init__(self, callee, args):
+        self.callee = callee
+        self.args = args
+
+class ListNode:           # list literal
+    def __init__(self, elements):
+        self.elements = elements
+
+class IndexNode:          # list[index]
+    def __init__(self, collection, index):
+        self.collection = collection
+        self.index = index
+
+class IndexAssignNode:    # list[index] = value
+    def __init__(self, collection, index, value):
+        self.collection = collection
+        self.index = index
+        self.value = value
+
+
+# ---------- Parser ----------
 
 class Parser:
     def __init__(self, tokens):
@@ -100,6 +146,46 @@ class Parser:
             value = self.expression()
             return AssignNode(name, value)
 
+        if self.match(TokenType.WEAVE):
+            name = self.expect(TokenType.IDENTIFIER).value
+            self.expect(TokenType.LPAREN)
+            params = []
+            if not self.match(TokenType.RPAREN):
+                params.append(self.expect(TokenType.IDENTIFIER).value)
+                while self.match(TokenType.COMMA):
+                    params.append(self.expect(TokenType.IDENTIFIER).value)
+                self.expect(TokenType.RPAREN)
+            self.skip_newlines()
+            body_stmts = []
+            while self.current().type not in (TokenType.CLOSE, TokenType.EOF):
+                body_stmts.append(self.statement())
+                self.skip_newlines()
+            self.expect(TokenType.CLOSE)
+            return WeaveNode(name, params, BlockNode(body_stmts))
+
+        if self.match(TokenType.EMIT):
+            # emit with optional value
+            if self.current().type in (TokenType.NEWLINE, TokenType.CLOSE, TokenType.EOF,
+                                       TokenType.SHADOW, TokenType.PATH, TokenType.BREAK,
+                                       TokenType.CONTINUE):
+                return EmitNode(None)
+            return EmitNode(self.expression())
+
+        if self.match(TokenType.ORBIT):
+            condition = self.expression()
+            self.skip_newlines()
+            body_stmts = []
+            while self.current().type not in (TokenType.CLOSE, TokenType.EOF):
+                body_stmts.append(self.statement())
+                self.skip_newlines()
+            self.expect(TokenType.CLOSE)
+            return OrbitNode(condition, BlockNode(body_stmts))
+
+        if self.match(TokenType.BREAK):
+            return BreakNode()
+        if self.match(TokenType.CONTINUE):
+            return ContinueNode()
+
         if self.match(TokenType.PROBE):
             condition = self.expression()
             self.skip_newlines()
@@ -128,7 +214,21 @@ class Parser:
         return self.expression()
 
     def expression(self):
-        return self.equality()
+        return self.logic_or()
+
+    def logic_or(self):
+        node = self.logic_and()
+        while self.match(TokenType.OR):
+            right = self.logic_and()
+            node = BinaryOpNode(node, "or", right)
+        return node
+
+    def logic_and(self):
+        node = self.equality()
+        while self.match(TokenType.AND):
+            right = self.equality()
+            node = BinaryOpNode(node, "and", right)
+        return node
 
     def equality(self):
         node = self.comparison()
@@ -184,6 +284,9 @@ class Parser:
             elif self.match(TokenType.SLASH):
                 right = self.unary()
                 node = BinaryOpNode(node, "/", right)
+            elif self.match(TokenType.PERCENT):
+                right = self.unary()
+                node = BinaryOpNode(node, "%", right)
             else:
                 break
         return node
@@ -192,7 +295,34 @@ class Parser:
         if self.match(TokenType.MINUS):
             operand = self.unary()
             return UnaryOpNode("-", operand)
-        return self.primary()
+        if self.match(TokenType.NOT):
+            operand = self.unary()
+            return UnaryOpNode("not", operand)
+        return self.call()
+
+    def call(self):
+        node = self.primary()
+
+        while True:
+            if self.match(TokenType.LPAREN):
+                args = []
+                if not self.match(TokenType.RPAREN):
+                    args.append(self.expression())
+                    while self.match(TokenType.COMMA):
+                        args.append(self.expression())
+                    self.expect(TokenType.RPAREN)
+                node = CallNode(node, args)
+            elif self.match(TokenType.LBRACKET):
+                index = self.expression()
+                self.expect(TokenType.RBRACKET)
+                if self.match(TokenType.EQUAL):
+                    value = self.expression()
+                    node = IndexAssignNode(node, index, value)
+                else:
+                    node = IndexNode(node, index)
+            else:
+                break
+        return node
 
     def primary(self):
         token = self.current()
@@ -207,6 +337,16 @@ class Parser:
             return BoolNode(False)
         if self.match(TokenType.IDENTIFIER):
             return VarNode(token.value)
+
+        if self.match(TokenType.LBRACKET):
+            elements = []
+            if not self.match(TokenType.RBRACKET):
+                elements.append(self.expression())
+                while self.match(TokenType.COMMA):
+                    elements.append(self.expression())
+                self.expect(TokenType.RBRACKET)
+            return ListNode(elements)
+
         if self.match(TokenType.LPAREN):
             expr = self.expression()
             self.expect(TokenType.RPAREN)
