@@ -1,7 +1,7 @@
 # WanX Lexer – Completely Original Vocabulary
-# Keywords chosen to avoid resemblance to any major programming language
-# Version 0.4 – Forge Edition – Built for complex systems, apps, games, websites & AI
+# Version 0.5 – Titan Edition
 # Created by JagX and JRILICENSE
+# Powerful enough for complex systems, apps, games, websites backends and AI
 
 from enum import Enum, auto
 
@@ -24,6 +24,7 @@ class TokenType(Enum):
     GT         = auto()
     LTE        = auto()
     GTE        = auto()
+    DOT        = auto()
 
     # Delimiters
     LPAREN     = auto()
@@ -33,36 +34,40 @@ class TokenType(Enum):
     LBRACE     = auto()
     RBRACE     = auto()
     COMMA      = auto()
-    DOT        = auto()
     COLON      = auto()
 
     # Original Core Keywords
-    PULSE      = auto()   # print / output
-    FORGE      = auto()   # variable declaration
-    PROBE      = auto()   # if
-    PATH       = auto()   # then
-    SHADOW     = auto()   # else
-    CLOSE      = auto()   # end of block
-    YES        = auto()   # true
-    NO         = auto()   # false
+    PULSE      = auto()
+    FORGE      = auto()
+    PROBE      = auto()
+    PATH       = auto()
+    SHADOW     = auto()
+    CLOSE      = auto()
+    YES        = auto()
+    NO         = auto()
 
-    # Power Keywords (still completely original)
-    WEAVE      = auto()   # function definition
-    EMIT       = auto()   # return
-    ORBIT      = auto()   # while loop
-    SCAN       = auto()   # for-each loop
-    AS         = auto()   # used with scan
+    # Power Keywords
+    WEAVE      = auto()
+    EMIT       = auto()
+    ORBIT      = auto()
+    SCAN       = auto()
+    AS         = auto()
     BREAK      = auto()
     CONTINUE   = auto()
     AND        = auto()
     OR         = auto()
     NOT        = auto()
-    VAULT      = auto()   # dictionary / map
-    SUMMON     = auto()   # import / load another file
-    UNLOCK     = auto()   # open file
-    GATHER     = auto()   # read
-    INSCRIBE   = auto()   # write
-    SEAL       = auto()   # close file
+    VAULT      = auto()
+    SUMMON     = auto()
+    UNLOCK     = auto()
+    GATHER     = auto()
+    INSCRIBE   = auto()
+    SEAL       = auto()
+
+    # Titan Edition – Classes
+    FORM       = auto()   # class definition
+    NEW        = auto()   # instantiate
+    CORE       = auto()   # self / this
 
     NEWLINE    = auto()
     EOF        = auto()
@@ -105,6 +110,9 @@ KEYWORDS = {
     "gather":   TokenType.GATHER,
     "inscribe": TokenType.INSCRIBE,
     "seal":     TokenType.SEAL,
+    "form":     TokenType.FORM,
+    "new":      TokenType.NEW,
+    "core":     TokenType.CORE,
 }
 
 
