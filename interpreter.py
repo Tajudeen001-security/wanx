@@ -543,4 +543,66 @@ class Interpreter:
             for param, arg in zip(method.params, args):
                 local.define(param, arg)
             try:
-                s
+                self.visit(method.body, local)
+            except ReturnValue:
+                pass
+        return instance
+
+    def visit_GetAttrNode(self, node, env):
+        obj = self.visit(node.obj, env)
+        if isinstance(obj, Instance):
+            if node.attr in obj.fields:
+                return obj.fields[node.attr]
+            if node.attr in obj.form.methods:
+                return BoundMethod(obj, obj.form.methods[node.attr])
+            raise RuntimeError(f"Instance has no attribute '{node.attr}'")
+        raise RuntimeError(f"Cannot get attribute from {type(obj)}")
+
+    def visit_SetAttrNode(self, node, env):
+        obj = self.visit(node.obj, env)
+        value = self.visit(node.value, env)
+        if isinstance(obj, Instance):
+            obj.fields[node.attr] = value
+            return value
+        raise RuntimeError(f"Cannot set attribute on {type(obj)}")
+
+    def visit_CallNode(self, node, env):
+        callee = self.visit(node.callee, env)
+        args = [self.visit(arg, env) for arg in node.args]
+
+        if isinstance(callee, BoundMethod):
+            method = callee.method
+            instance = callee.instance
+            if len(args) != len(method.params):
+                raise RuntimeError(f"Method '{method.name}' expects {len(method.params)} args, got {len(args)}")
+            local = Environment(parent=method.closure)
+            local.define("core", instance)
+            for param, arg in zip(method.params, args):
+                local.define(param, arg)
+            try:
+                self.visit(method.body, local)
+                return None
+            except ReturnValue as ret:
+                return ret.value
+
+        if callable(callee) and not isinstance(callee, Function):
+            try:
+                return callee(*args)
+            except Exception as e:
+                raise RuntimeError(f"Error calling built-in: {e}")
+
+        if isinstance(callee, Function):
+            if len(args) != len(callee.params):
+                raise RuntimeError(
+                    f"weave '{callee.name}' expects {len(callee.params)} arguments, got {len(args)}"
+                )
+            local = Environment(parent=callee.closure)
+            for param, arg in zip(callee.params, args):
+                local.define(param, arg)
+            try:
+                self.visit(callee.body, local)
+                return None
+            except ReturnValue as ret:
+                return ret.value
+
+        raise RuntimeError(f"'{callee}' is not callable")
