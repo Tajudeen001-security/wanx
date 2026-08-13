@@ -1,5 +1,5 @@
 # WanX Parser – Original syntax
-# Version 0.4 – Forge Edition
+# Version 0.5 – Titan Edition
 # Created by JagX and JRILICENSE
 
 from lexer import TokenType
@@ -67,7 +67,7 @@ class OrbitNode:
         self.condition = condition
         self.body = body
 
-class ScanNode:          # for-each
+class ScanNode:
     def __init__(self, collection, var_name, body):
         self.collection = collection
         self.var_name = var_name
@@ -88,9 +88,9 @@ class ListNode:
     def __init__(self, elements):
         self.elements = elements
 
-class VaultNode:         # dictionary
+class VaultNode:
     def __init__(self, pairs):
-        self.pairs = pairs   # list of (key_node, value_node)
+        self.pairs = pairs
 
 class IndexNode:
     def __init__(self, collection, index):
@@ -106,6 +106,28 @@ class IndexAssignNode:
 class SummonNode:
     def __init__(self, path):
         self.path = path
+
+# Titan Edition – Classes
+class FormNode:
+    def __init__(self, name, methods):
+        self.name = name
+        self.methods = methods   # list of WeaveNode
+
+class GetAttrNode:
+    def __init__(self, obj, attr):
+        self.obj = obj
+        self.attr = attr
+
+class SetAttrNode:
+    def __init__(self, obj, attr, value):
+        self.obj = obj
+        self.attr = attr
+        self.value = value
+
+class NewNode:
+    def __init__(self, class_name, args):
+        self.class_name = class_name
+        self.args = args
 
 
 # ---------- Parser ----------
@@ -176,6 +198,34 @@ class Parser:
                 self.skip_newlines()
             self.expect(TokenType.CLOSE)
             return WeaveNode(name, params, BlockNode(body_stmts))
+
+        if self.match(TokenType.FORM):
+            name = self.expect(TokenType.IDENTIFIER).value
+            self.skip_newlines()
+            methods = []
+            while self.current().type not in (TokenType.CLOSE, TokenType.EOF):
+                if self.match(TokenType.WEAVE):
+                    mname = self.expect(TokenType.IDENTIFIER).value
+                    self.expect(TokenType.LPAREN)
+                    params = []
+                    if not self.match(TokenType.RPAREN):
+                        params.append(self.expect(TokenType.IDENTIFIER).value)
+                        while self.match(TokenType.COMMA):
+                            params.append(self.expect(TokenType.IDENTIFIER).value)
+                        self.expect(TokenType.RPAREN)
+                    self.skip_newlines()
+                    body_stmts = []
+                    while self.current().type not in (TokenType.CLOSE, TokenType.EOF, TokenType.WEAVE):
+                        body_stmts.append(self.statement())
+                        self.skip_newlines()
+                    self.expect(TokenType.CLOSE)
+                    methods.append(WeaveNode(mname, params, BlockNode(body_stmts)))
+                else:
+                    self.skip_newlines()
+                    if self.current().type not in (TokenType.CLOSE, TokenType.EOF, TokenType.WEAVE):
+                        raise SyntaxError(f"Expected weave inside form on line {self.current().line}")
+            self.expect(TokenType.CLOSE)
+            return FormNode(name, methods)
 
         if self.match(TokenType.EMIT):
             if self.current().type in (TokenType.NEWLINE, TokenType.CLOSE, TokenType.EOF,
@@ -349,6 +399,13 @@ class Parser:
                     node = IndexAssignNode(node, index, value)
                 else:
                     node = IndexNode(node, index)
+            elif self.match(TokenType.DOT):
+                attr = self.expect(TokenType.IDENTIFIER).value
+                if self.match(TokenType.EQUAL):
+                    value = self.expression()
+                    node = SetAttrNode(node, attr, value)
+                else:
+                    node = GetAttrNode(node, attr)
             else:
                 break
         return node
@@ -364,10 +421,22 @@ class Parser:
             return BoolNode(True)
         if self.match(TokenType.NO):
             return BoolNode(False)
+        if self.match(TokenType.CORE):
+            return VarNode("core")
         if self.match(TokenType.IDENTIFIER):
             return VarNode(token.value)
 
-        # list [ ... ]
+        if self.match(TokenType.NEW):
+            class_name = self.expect(TokenType.IDENTIFIER).value
+            self.expect(TokenType.LPAREN)
+            args = []
+            if not self.match(TokenType.RPAREN):
+                args.append(self.expression())
+                while self.match(TokenType.COMMA):
+                    args.append(self.expression())
+                self.expect(TokenType.RPAREN)
+            return NewNode(class_name, args)
+
         if self.match(TokenType.LBRACKET):
             elements = []
             if not self.match(TokenType.RBRACKET):
@@ -377,7 +446,6 @@ class Parser:
                 self.expect(TokenType.RBRACKET)
             return ListNode(elements)
 
-        # vault { key : value, ... }
         if self.match(TokenType.VAULT):
             self.expect(TokenType.LBRACE)
             pairs = []
