@@ -1,19 +1,22 @@
-# WanX Interpreter – Version 0.4 Forge Edition
+# WanX Interpreter – Version 0.5 Titan Edition
 # Completely original language by JagX and JRILICENSE
-# Designed to build complex systems, apps, games, websites backends and AI
+# Classes, systems, apps, games, web backends and AI
 
 from parser import (
     NumberNode, StringNode, BoolNode, VarNode,
     BinaryOpNode, UnaryOpNode, AssignNode, PulseNode,
     ProbeNode, BlockNode, WeaveNode, EmitNode, OrbitNode,
     ScanNode, BreakNode, ContinueNode, CallNode, ListNode,
-    VaultNode, IndexNode, IndexAssignNode, SummonNode
+    VaultNode, IndexNode, IndexAssignNode, SummonNode,
+    FormNode, GetAttrNode, SetAttrNode, NewNode
 )
 import math
 import random
 import time
 import os
 import json
+import urllib.request
+import urllib.error
 
 class RuntimeError(Exception):
     pass
@@ -68,6 +71,35 @@ class Function:
         return f"<weave {self.name}>"
 
 
+class Form:
+    """Class definition"""
+    def __init__(self, name, methods):
+        self.name = name
+        self.methods = {m.name: m for m in methods} if methods else {}
+
+    def __repr__(self):
+        return f"<form {self.name}>"
+
+
+class Instance:
+    """Object instance"""
+    def __init__(self, form):
+        self.form = form
+        self.fields = {}
+
+    def __repr__(self):
+        return f"<instance of {self.form.name}>"
+
+
+class BoundMethod:
+    def __init__(self, instance, method):
+        self.instance = instance
+        self.method = method
+
+    def __repr__(self):
+        return f"<bound {self.method.name}>"
+
+
 class Interpreter:
     def __init__(self):
         self.global_env = Environment()
@@ -75,7 +107,6 @@ class Interpreter:
         self.loaded_modules = set()
 
     def _install_builtins(self, env):
-        # --- Core I/O ---
         def builtin_pulse(*args):
             print(*args)
             return args[-1] if args else None
@@ -83,7 +114,6 @@ class Interpreter:
         def builtin_input(prompt=""):
             return input(str(prompt))
 
-        # --- Type & conversion ---
         def builtin_type(x):
             if isinstance(x, bool): return "bool"
             if isinstance(x, int): return "int"
@@ -92,6 +122,8 @@ class Interpreter:
             if isinstance(x, list): return "list"
             if isinstance(x, dict): return "vault"
             if isinstance(x, Function): return "weave"
+            if isinstance(x, Form): return "form"
+            if isinstance(x, Instance): return "instance"
             return "unknown"
 
         def builtin_str(x): return str(x)
@@ -103,7 +135,6 @@ class Interpreter:
         def builtin_float(x): return float(x)
         def builtin_int(x): return int(x)
 
-        # --- List power ---
         def builtin_len(x): return len(x)
         def builtin_push(lst, item):
             if not isinstance(lst, list): raise RuntimeError("push expects a list")
@@ -117,7 +148,6 @@ class Interpreter:
             if end is None: return lst[start:]
             return lst[start:end]
 
-        # --- Vault (dict) helpers ---
         def builtin_keys(v):
             if not isinstance(v, dict): raise RuntimeError("keys expects a vault")
             return list(v.keys())
@@ -128,7 +158,6 @@ class Interpreter:
             if not isinstance(v, dict): raise RuntimeError("has expects a vault")
             return key in v
 
-        # --- Math (AI + games + science) ---
         def builtin_abs(x): return abs(x)
         def builtin_sqrt(x): return math.sqrt(x)
         def builtin_pow(base, exp): return math.pow(base, exp)
@@ -146,7 +175,6 @@ class Interpreter:
         def builtin_pi(): return math.pi
         def builtin_e(): return math.e
 
-        # --- Random (games + AI) ---
         def builtin_random(): return random.random()
         def builtin_randint(a, b): return random.randint(int(a), int(b))
         def builtin_choice(lst): return random.choice(lst)
@@ -154,13 +182,11 @@ class Interpreter:
             random.shuffle(lst)
             return lst
 
-        # --- Time ---
         def builtin_time(): return time.time()
         def builtin_sleep(seconds):
             time.sleep(float(seconds))
             return None
 
-        # --- Vector helpers (AI + games) ---
         def builtin_dot(a, b):
             if len(a) != len(b): raise RuntimeError("dot requires equal length")
             return sum(x*y for x,y in zip(a,b))
@@ -172,92 +198,77 @@ class Interpreter:
             if len(a) != len(b): raise RuntimeError("vectors must match length")
             return [x-y for x,y in zip(a,b)]
 
-        # --- File I/O (original names) ---
         def builtin_unlock(path, mode="r"):
             try:
                 return open(path, mode, encoding="utf-8")
             except Exception as e:
                 raise RuntimeError(f"Cannot unlock file: {e}")
-
         def builtin_gather(f):
-            try:
-                return f.read()
-            except Exception as e:
-                raise RuntimeError(f"Cannot gather from file: {e}")
-
+            try: return f.read()
+            except Exception as e: raise RuntimeError(f"Cannot gather: {e}")
         def builtin_inscribe(f, text):
             try:
                 f.write(str(text))
                 return None
-            except Exception as e:
-                raise RuntimeError(f"Cannot inscribe to file: {e}")
-
+            except Exception as e: raise RuntimeError(f"Cannot inscribe: {e}")
         def builtin_seal(f):
             try:
                 f.close()
                 return None
+            except Exception as e: raise RuntimeError(f"Cannot seal: {e}")
+
+        def builtin_tojson(obj): return json.dumps(obj)
+        def builtin_fromjson(s): return json.loads(s)
+        def builtin_exists(path): return os.path.exists(path)
+
+        # String power
+        def builtin_upper(s): return str(s).upper()
+        def builtin_lower(s): return str(s).lower()
+        def builtin_split(s, sep=" "): return str(s).split(sep)
+        def builtin_join(lst, sep=""): return sep.join(str(x) for x in lst)
+        def builtin_replace(s, old, new): return str(s).replace(str(old), str(new))
+        def builtin_startswith(s, prefix): return str(s).startswith(str(prefix))
+        def builtin_endswith(s, suffix): return str(s).endswith(str(suffix))
+        def builtin_contains(s, sub): return str(sub) in str(s)
+        def builtin_trim(s): return str(s).strip()
+
+        # HTTP
+        def builtin_fetch(url, method="GET", data=None):
+            try:
+                if data is not None:
+                    data = str(data).encode("utf-8")
+                req = urllib.request.Request(url, data=data, method=method)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    return resp.read().decode("utf-8", errors="replace")
             except Exception as e:
-                raise RuntimeError(f"Cannot seal file: {e}")
+                raise RuntimeError(f"fetch failed: {e}")
 
-        # --- Simple JSON helpers (web + data) ---
-        def builtin_tojson(obj):
-            return json.dumps(obj)
-        def builtin_fromjson(s):
-            return json.loads(s)
+        # Game helpers
+        def builtin_distance(x1, y1, x2, y2):
+            return math.sqrt((x2-x1)**2 + (y2-y1)**2)
+        def builtin_collide(x1, y1, w1, h1, x2, y2, w2, h2):
+            return (x1 < x2 + w2 and x1 + w1 > x2 and
+                    y1 < y2 + h2 and y1 + h1 > y2)
 
-        # --- System ---
-        def builtin_exists(path):
-            return os.path.exists(path)
-
-        # Register everything
         builtins = {
-            "pulse": builtin_pulse,
-            "input": builtin_input,
-            "type": builtin_type,
-            "str": builtin_str,
-            "num": builtin_num,
-            "float": builtin_float,
-            "int": builtin_int,
-            "len": builtin_len,
-            "push": builtin_push,
-            "pop": builtin_pop,
-            "slice": builtin_slice,
-            "keys": builtin_keys,
-            "values": builtin_values,
-            "has": builtin_has,
-            "abs": builtin_abs,
-            "sqrt": builtin_sqrt,
-            "pow": builtin_pow,
-            "floor": builtin_floor,
-            "ceil": builtin_ceil,
-            "round": builtin_round,
-            "sin": builtin_sin,
-            "cos": builtin_cos,
-            "tan": builtin_tan,
-            "log": builtin_log,
-            "exp": builtin_exp,
-            "min": builtin_min,
-            "max": builtin_max,
-            "sum": builtin_sum,
-            "pi": builtin_pi,
-            "e": builtin_e,
-            "random": builtin_random,
-            "randint": builtin_randint,
-            "choice": builtin_choice,
-            "shuffle": builtin_shuffle,
-            "time": builtin_time,
-            "sleep": builtin_sleep,
-            "dot": builtin_dot,
-            "scale": builtin_scale,
-            "addvec": builtin_addvec,
-            "subvec": builtin_subvec,
-            "unlock": builtin_unlock,
-            "gather": builtin_gather,
-            "inscribe": builtin_inscribe,
-            "seal": builtin_seal,
-            "tojson": builtin_tojson,
-            "fromjson": builtin_fromjson,
-            "exists": builtin_exists,
+            "pulse": builtin_pulse, "input": builtin_input, "type": builtin_type,
+            "str": builtin_str, "num": builtin_num, "float": builtin_float, "int": builtin_int,
+            "len": builtin_len, "push": builtin_push, "pop": builtin_pop, "slice": builtin_slice,
+            "keys": builtin_keys, "values": builtin_values, "has": builtin_has,
+            "abs": builtin_abs, "sqrt": builtin_sqrt, "pow": builtin_pow,
+            "floor": builtin_floor, "ceil": builtin_ceil, "round": builtin_round,
+            "sin": builtin_sin, "cos": builtin_cos, "tan": builtin_tan,
+            "log": builtin_log, "exp": builtin_exp, "min": builtin_min, "max": builtin_max,
+            "sum": builtin_sum, "pi": builtin_pi, "e": builtin_e,
+            "random": builtin_random, "randint": builtin_randint, "choice": builtin_choice,
+            "shuffle": builtin_shuffle, "time": builtin_time, "sleep": builtin_sleep,
+            "dot": builtin_dot, "scale": builtin_scale, "addvec": builtin_addvec, "subvec": builtin_subvec,
+            "unlock": builtin_unlock, "gather": builtin_gather, "inscribe": builtin_inscribe, "seal": builtin_seal,
+            "tojson": builtin_tojson, "fromjson": builtin_fromjson, "exists": builtin_exists,
+            "upper": builtin_upper, "lower": builtin_lower, "split": builtin_split,
+            "join": builtin_join, "replace": builtin_replace, "startswith": builtin_startswith,
+            "endswith": builtin_endswith, "contains": builtin_contains, "trim": builtin_trim,
+            "fetch": builtin_fetch, "distance": builtin_distance, "collide": builtin_collide,
         }
         for name, fn in builtins.items():
             env.define(name, fn)
@@ -315,7 +326,6 @@ class Interpreter:
 
         left = self.visit(node.left, env)
         right = self.visit(node.right, env)
-
         op = node.op
         if op == "+":
             if isinstance(left, str) or isinstance(right, str):
@@ -445,9 +455,72 @@ class Interpreter:
         self.loaded_modules.add(path)
         return self.visit(ast, env)
 
+    # ---------- Classes ----------
+    def visit_FormNode(self, node, env):
+        methods = []
+        for m in node.methods:
+            fn = Function(m.name, m.params, m.body, env)
+            methods.append(fn)
+        form = Form(node.name, methods)
+        form.methods = {m.name: m for m in methods}
+        env.define(node.name, form)
+        return form
+
+    def visit_NewNode(self, node, env):
+        form = env.get(node.class_name)
+        if not isinstance(form, Form):
+            raise RuntimeError(f"'{node.class_name}' is not a form")
+        instance = Instance(form)
+        # Call init if it exists
+        if "init" in form.methods:
+            method = form.methods["init"]
+            args = [self.visit(a, env) for a in node.args]
+            local = Environment(parent=method.closure)
+            local.define("core", instance)
+            for param, arg in zip(method.params, args):
+                local.define(param, arg)
+            try:
+                self.visit(method.body, local)
+            except ReturnValue:
+                pass
+        return instance
+
+    def visit_GetAttrNode(self, node, env):
+        obj = self.visit(node.obj, env)
+        if isinstance(obj, Instance):
+            if node.attr in obj.fields:
+                return obj.fields[node.attr]
+            if node.attr in obj.form.methods:
+                return BoundMethod(obj, obj.form.methods[node.attr])
+            raise RuntimeError(f"Instance has no attribute '{node.attr}'")
+        raise RuntimeError(f"Cannot get attribute from {type(obj)}")
+
+    def visit_SetAttrNode(self, node, env):
+        obj = self.visit(node.obj, env)
+        value = self.visit(node.value, env)
+        if isinstance(obj, Instance):
+            obj.fields[node.attr] = value
+            return value
+        raise RuntimeError(f"Cannot set attribute on {type(obj)}")
+
     def visit_CallNode(self, node, env):
         callee = self.visit(node.callee, env)
         args = [self.visit(arg, env) for arg in node.args]
+
+        if isinstance(callee, BoundMethod):
+            method = callee.method
+            instance = callee.instance
+            if len(args) != len(method.params):
+                raise RuntimeError(f"Method '{method.name}' expects {len(method.params)} args, got {len(args)}")
+            local = Environment(parent=method.closure)
+            local.define("core", instance)
+            for param, arg in zip(method.params, args):
+                local.define(param, arg)
+            try:
+                self.visit(method.body, local)
+                return None
+            except ReturnValue as ret:
+                return ret.value
 
         if callable(callee) and not isinstance(callee, Function):
             try:
@@ -469,4 +542,4 @@ class Interpreter:
             except ReturnValue as ret:
                 return ret.value
 
-        raise RuntimeError(f"'{callee}' is not callable")
+        raise RuntimeE
