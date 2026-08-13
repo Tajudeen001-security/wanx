@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 WanX Programming Language
-Version 0.3 – Original vocabulary, powerful enough to construct complete systems and AI foundations
+Version 0.4 – Forge Edition
+Completely original language created by JagX and JRILICENSE
+Powerful enough for systems, apps, games, web backends and AI
 """
 
 import sys
@@ -34,9 +36,10 @@ def run_file(filename: str):
     run(source, interpreter)
 
 def run_repl():
-    print("WanX v0.3  –  Original language for building systems & AI from scratch")
+    print("WanX v0.4 Forge Edition")
+    print("Original language by JagX and JRILICENSE")
     print("Type 'exit' or Ctrl+C to quit")
-    print("-" * 55)
+    print("-" * 50)
     interpreter = Interpreter()
 
     while True:
