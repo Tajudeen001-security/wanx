@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WanX Playground Website + Database Support
+WanX Playground Website + Database + Defensive Security Helpers
 Created for JagX and JRILICENSE
 """
 
@@ -47,7 +47,6 @@ def init_db():
         """)
         db.commit()
 
-# Initialize database on startup
 init_db()
 
 # ---------- WanX Runner ----------
@@ -263,3 +262,58 @@ forge file_content = "config version 1.2.3"
 pulse "Content hash: " + sha256(file_content)'''
     }
     return jsonify(examples)
+
+
+# ---------- Database API ----------
+@app.route("/api/snippets", methods=["GET"])
+def list_snippets():
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, title, created_at FROM snippets ORDER BY id DESC LIMIT 50"
+    ).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/snippets/<int:snippet_id>", methods=["GET"])
+def get_snippet(snippet_id):
+    db = get_db()
+    row = db.execute(
+        "SELECT id, title, code, created_at FROM snippets WHERE id = ?",
+        (snippet_id,)
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Snippet not found"}), 404
+    return jsonify(dict(row))
+
+
+@app.route("/api/snippets", methods=["POST"])
+def save_snippet():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "Untitled").strip()[:80]
+    code = data.get("code", "")
+
+    if not code.strip():
+        return jsonify({"error": "Code is empty"}), 400
+    if len(code) > 15000:
+        return jsonify({"error": "Code too long"}), 400
+
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO snippets (title, code, created_at) VALUES (?, ?, ?)",
+        (title, code, datetime.utcnow().isoformat())
+    )
+    db.commit()
+    return jsonify({"id": cur.lastrowid, "title": title, "message": "Saved"})
+
+
+@app.route("/api/snippets/<int:snippet_id>", methods=["DELETE"])
+def delete_snippet(snippet_id):
+    db = get_db()
+    db.execute("DELETE FROM snippets WHERE id = ?", (snippet_id,))
+    db.commit()
+    return jsonify({"message": "Deleted"})
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
