@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}WanX – Original Programming Language{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Meet <span>WanX</span></h1>
+    <p>
+        An original programming language with unique vocabulary.
+        Built for systems, applications, games, and AI — created by JagX & JRILICENSE.
+    </p>
+    <div class="hero-actions">
+        <a href="/playground" class="btn btn-primary">Open Playground</a>
+        <a href="/docs" class="btn btn-secondary">Learn WanX</a>
+    </div>
+</section>
+
+<div class="container">
+    <div class="features">
+        <div class="card">
+            <h3>Original Keywords</h3>
+            <p><code>pulse</code>, <code>forge</code>, <code>probe</code>, <code>weave</code>, <code>orbit</code>, <code>form</code>, <code>vault</code> — completely unique vocabulary.</p>
+        </div>
+        <div class="card">
+            <h3>Full Power</h3>
+            <p>Functions, classes, lists, dictionaries, loops, file I/O, HTTP, math, game helpers and more.</p>
+        </div>
+        <div class="card">
+            <h3>Build Anything</h3>
+            <p>Applications, game logic, AI foundations, data systems and web backends — all in pure WanX.</p>
+        </div>
+        <div class="card">
+            <h3>Interactive Learning</h3>
+            <p>Write code, run it instantly, and see the results live in the playground.</p>
+        </div>
+    </div>
+
+    <h2 style="margin: 2.5rem 0 1rem;">Quick Taste</h2>
+    <pre class="code-block">:: Hello from WanX
+pulse "Welcome to WanX!"
+
+forge name = "Creator"
+pulse "Hello, " + name
+
+form Player
+    weave init(n, hp)
+        core.name = n
+        core.hp = hp
+    close
+    weave status()
+        pulse core.name + " has " + str(core.hp) + " HP"
+    close
+close
+
+forge hero = new Player("Aria", 100)
+hero.status()</pre>
+
+    <div style="text-align:center; margin: 2rem 0;">
+        <a href="/playground" class="btn btn-primary">Try this in the Playground →</a>
+    </div>
+</div>
+{% endblock %}
