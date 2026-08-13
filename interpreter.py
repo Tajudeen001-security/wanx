@@ -1,6 +1,6 @@
-# WanX Interpreter – Version 0.5 Titan Edition
+# WanX Interpreter – Version 0.5 Titan Edition + Defensive Security Helpers
 # Completely original language by JagX and JRILICENSE
-# Classes, systems, apps, games, web backends and AI
+# Classes, systems, apps, games, web backends, AI and defensive security tools
 
 from parser import (
     NumberNode, StringNode, BoolNode, VarNode,
@@ -17,6 +17,9 @@ import os
 import json
 import urllib.request
 import urllib.error
+import hashlib
+import base64
+from datetime import datetime
 
 class RuntimeError(Exception):
     pass
@@ -72,7 +75,6 @@ class Function:
 
 
 class Form:
-    """Class definition"""
     def __init__(self, name, methods):
         self.name = name
         self.methods = {m.name: m for m in methods} if methods else {}
@@ -82,7 +84,6 @@ class Form:
 
 
 class Instance:
-    """Object instance"""
     def __init__(self, form):
         self.form = form
         self.fields = {}
@@ -221,7 +222,6 @@ class Interpreter:
         def builtin_fromjson(s): return json.loads(s)
         def builtin_exists(path): return os.path.exists(path)
 
-        # String power
         def builtin_upper(s): return str(s).upper()
         def builtin_lower(s): return str(s).lower()
         def builtin_split(s, sep=" "): return str(s).split(sep)
@@ -232,7 +232,6 @@ class Interpreter:
         def builtin_contains(s, sub): return str(sub) in str(s)
         def builtin_trim(s): return str(s).strip()
 
-        # HTTP
         def builtin_fetch(url, method="GET", data=None):
             try:
                 if data is not None:
@@ -243,12 +242,70 @@ class Interpreter:
             except Exception as e:
                 raise RuntimeError(f"fetch failed: {e}")
 
-        # Game helpers
         def builtin_distance(x1, y1, x2, y2):
             return math.sqrt((x2-x1)**2 + (y2-y1)**2)
         def builtin_collide(x1, y1, w1, h1, x2, y2, w2, h2):
             return (x1 < x2 + w2 and x1 + w1 > x2 and
                     y1 < y2 + h2 and y1 + h1 > y2)
+
+        # ===== Defensive Cybersecurity Helpers =====
+        def builtin_sha256(data):
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            return hashlib.sha256(data).hexdigest()
+
+        def builtin_md5(data):
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            return hashlib.md5(data).hexdigest()
+
+        def builtin_b64encode(data):
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            return base64.b64encode(data).decode("utf-8")
+
+        def builtin_b64decode(data):
+            return base64.b64decode(data).decode("utf-8", errors="replace")
+
+        def builtin_now():
+            return datetime.utcnow().isoformat() + "Z"
+
+        def builtin_filesize(path):
+            try:
+                return os.path.getsize(path)
+            except Exception as e:
+                raise RuntimeError(f"filesize error: {e}")
+
+        def builtin_filehash(path, algo="sha256"):
+            try:
+                h = hashlib.sha256() if algo == "sha256" else hashlib.md5()
+                with open(path, "rb") as f:
+                    for chunk in iter(lambda: f.read(8192), b""):
+                        h.update(chunk)
+                return h.hexdigest()
+            except Exception as e:
+                raise RuntimeError(f"filehash error: {e}")
+
+        def builtin_fetch_status(url, method="GET", data=None):
+            try:
+                if data is not None:
+                    data = str(data).encode("utf-8")
+                req = urllib.request.Request(url, data=data, method=method)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    body = resp.read().decode("utf-8", errors="replace")
+                    return {
+                        "status": resp.getcode(),
+                        "body": body,
+                        "url": url
+                    }
+            except urllib.error.HTTPError as e:
+                return {
+                    "status": e.code,
+                    "body": str(e),
+                    "url": url
+                }
+            except Exception as e:
+                raise RuntimeError(f"fetch_status failed: {e}")
 
         builtins = {
             "pulse": builtin_pulse, "input": builtin_input, "type": builtin_type,
@@ -269,6 +326,10 @@ class Interpreter:
             "join": builtin_join, "replace": builtin_replace, "startswith": builtin_startswith,
             "endswith": builtin_endswith, "contains": builtin_contains, "trim": builtin_trim,
             "fetch": builtin_fetch, "distance": builtin_distance, "collide": builtin_collide,
+            "sha256": builtin_sha256, "md5": builtin_md5,
+            "b64encode": builtin_b64encode, "b64decode": builtin_b64decode,
+            "now": builtin_now, "filesize": builtin_filesize, "filehash": builtin_filehash,
+            "fetch_status": builtin_fetch_status,
         }
         for name, fn in builtins.items():
             env.define(name, fn)
@@ -377,169 +438,4 @@ class Interpreter:
             raise RuntimeError(f"Index error: {e}")
 
     def visit_PulseNode(self, node, env):
-        value = self.visit(node.expr, env)
-        print(value)
-        return value
-
-    def visit_ProbeNode(self, node, env):
-        condition = self.visit(node.condition, env)
-        if condition:
-            return self.visit(node.path_branch, env)
-        elif node.shadow_branch:
-            return self.visit(node.shadow_branch, env)
-        return None
-
-    def visit_OrbitNode(self, node, env):
-        result = None
-        while self.visit(node.condition, env):
-            try:
-                result = self.visit(node.body, env)
-            except BreakSignal:
-                break
-            except ContinueSignal:
-                continue
-        return result
-
-    def visit_ScanNode(self, node, env):
-        collection = self.visit(node.collection, env)
-        result = None
-        if isinstance(collection, dict):
-            collection = list(collection.items())
-        for item in collection:
-            env.define(node.var_name, item)
-            try:
-                result = self.visit(node.body, env)
-            except BreakSignal:
-                break
-            except ContinueSignal:
-                continue
-        return result
-
-    def visit_BreakNode(self, node, env):
-        raise BreakSignal()
-
-    def visit_ContinueNode(self, node, env):
-        raise ContinueSignal()
-
-    def visit_BlockNode(self, node, env):
-        result = None
-        for stmt in node.statements:
-            result = self.visit(stmt, env)
-        return result
-
-    def visit_WeaveNode(self, node, env):
-        fn = Function(node.name, node.params, node.body, env)
-        env.define(node.name, fn)
-        return fn
-
-    def visit_EmitNode(self, node, env):
-        value = None
-        if node.value is not None:
-            value = self.visit(node.value, env)
-        raise ReturnValue(value)
-
-    def visit_SummonNode(self, node, env):
-        path = node.path
-        if path in self.loaded_modules:
-            return None
-        if not os.path.exists(path):
-            raise RuntimeError(f"Cannot summon: file '{path}' not found")
-        with open(path, "r", encoding="utf-8") as f:
-            source = f.read()
-        from lexer import Lexer
-        from parser import Parser
-        lexer = Lexer(source)
-        tokens = lexer.tokenize()
-        parser = Parser(tokens)
-        ast = parser.parse()
-        self.loaded_modules.add(path)
-        return self.visit(ast, env)
-
-    # ---------- Classes ----------
-    def visit_FormNode(self, node, env):
-        methods = []
-        for m in node.methods:
-            fn = Function(m.name, m.params, m.body, env)
-            methods.append(fn)
-        form = Form(node.name, methods)
-        form.methods = {m.name: m for m in methods}
-        env.define(node.name, form)
-        return form
-
-    def visit_NewNode(self, node, env):
-        form = env.get(node.class_name)
-        if not isinstance(form, Form):
-            raise RuntimeError(f"'{node.class_name}' is not a form")
-        instance = Instance(form)
-        # Call init if it exists
-        if "init" in form.methods:
-            method = form.methods["init"]
-            args = [self.visit(a, env) for a in node.args]
-            local = Environment(parent=method.closure)
-            local.define("core", instance)
-            for param, arg in zip(method.params, args):
-                local.define(param, arg)
-            try:
-                self.visit(method.body, local)
-            except ReturnValue:
-                pass
-        return instance
-
-    def visit_GetAttrNode(self, node, env):
-        obj = self.visit(node.obj, env)
-        if isinstance(obj, Instance):
-            if node.attr in obj.fields:
-                return obj.fields[node.attr]
-            if node.attr in obj.form.methods:
-                return BoundMethod(obj, obj.form.methods[node.attr])
-            raise RuntimeError(f"Instance has no attribute '{node.attr}'")
-        raise RuntimeError(f"Cannot get attribute from {type(obj)}")
-
-    def visit_SetAttrNode(self, node, env):
-        obj = self.visit(node.obj, env)
-        value = self.visit(node.value, env)
-        if isinstance(obj, Instance):
-            obj.fields[node.attr] = value
-            return value
-        raise RuntimeError(f"Cannot set attribute on {type(obj)}")
-
-    def visit_CallNode(self, node, env):
-        callee = self.visit(node.callee, env)
-        args = [self.visit(arg, env) for arg in node.args]
-
-        if isinstance(callee, BoundMethod):
-            method = callee.method
-            instance = callee.instance
-            if len(args) != len(method.params):
-                raise RuntimeError(f"Method '{method.name}' expects {len(method.params)} args, got {len(args)}")
-            local = Environment(parent=method.closure)
-            local.define("core", instance)
-            for param, arg in zip(method.params, args):
-                local.define(param, arg)
-            try:
-                self.visit(method.body, local)
-                return None
-            except ReturnValue as ret:
-                return ret.value
-
-        if callable(callee) and not isinstance(callee, Function):
-            try:
-                return callee(*args)
-            except Exception as e:
-                raise RuntimeError(f"Error calling built-in: {e}")
-
-        if isinstance(callee, Function):
-            if len(args) != len(callee.params):
-                raise RuntimeError(
-                    f"weave '{callee.name}' expects {len(callee.params)} arguments, got {len(args)}"
-                )
-            local = Environment(parent=callee.closure)
-            for param, arg in zip(callee.params, args):
-                local.define(param, arg)
-            try:
-                self.visit(callee.body, local)
-                return None
-            except ReturnValue as ret:
-                return ret.value
-
-        raise RuntimeE
+        value = self.visit(node
