@@ -219,61 +219,47 @@ close
 
 pulse "Learned w ≈ " + str(w)
 pulse "Learned b ≈ " + str(b)
-pulse "Prediction for x=6: " + str(predict(6))'''
+pulse "Prediction for x=6: " + str(predict(6))''',
+
+        "integrity": ''':: File / Data Integrity Check (defensive)
+forge data = "important configuration data"
+pulse "SHA-256: " + sha256(data)
+pulse "MD5: " + md5(data)
+
+forge encoded = b64encode(data)
+pulse "Base64: " + encoded
+pulse "Decoded: " + b64decode(encoded)''',
+
+        "httpcheck": ''':: HTTP Status Check (defensive monitoring)
+forge result = fetch_status("https://httpbin.org/status/200")
+pulse "Status code: " + str(result["status"])
+pulse "URL: " + result["url"]
+
+forge bad = fetch_status("https://httpbin.org/status/404")
+pulse "404 Status: " + str(bad["status"])''',
+
+        "logging": ''':: Simple Security-style Logging
+forge event = vault {
+    "time" : now(),
+    "level" : "INFO",
+    "message" : "User login successful",
+    "source" : "auth-service"
+}
+pulse tojson(event)
+
+forge alert = vault {
+    "time" : now(),
+    "level" : "WARN",
+    "message" : "Multiple failed attempts detected",
+    "count" : 5
+}
+pulse tojson(alert)''',
+
+        "hashdemo": ''':: Hashing Demo (integrity & verification)
+forge password_check = sha256("user_input_here")
+pulse "Hash: " + password_check
+
+forge file_content = "config version 1.2.3"
+pulse "Content hash: " + sha256(file_content)'''
     }
     return jsonify(examples)
-
-
-# ---------- Database API ----------
-@app.route("/api/snippets", methods=["GET"])
-def list_snippets():
-    db = get_db()
-    rows = db.execute(
-        "SELECT id, title, created_at FROM snippets ORDER BY id DESC LIMIT 50"
-    ).fetchall()
-    return jsonify([dict(r) for r in rows])
-
-
-@app.route("/api/snippets/<int:snippet_id>", methods=["GET"])
-def get_snippet(snippet_id):
-    db = get_db()
-    row = db.execute(
-        "SELECT id, title, code, created_at FROM snippets WHERE id = ?",
-        (snippet_id,)
-    ).fetchone()
-    if not row:
-        return jsonify({"error": "Snippet not found"}), 404
-    return jsonify(dict(row))
-
-
-@app.route("/api/snippets", methods=["POST"])
-def save_snippet():
-    data = request.get_json(silent=True) or {}
-    title = (data.get("title") or "Untitled").strip()[:80]
-    code = data.get("code", "")
-
-    if not code.strip():
-        return jsonify({"error": "Code is empty"}), 400
-    if len(code) > 15000:
-        return jsonify({"error": "Code too long"}), 400
-
-    db = get_db()
-    cur = db.execute(
-        "INSERT INTO snippets (title, code, created_at) VALUES (?, ?, ?)",
-        (title, code, datetime.utcnow().isoformat())
-    )
-    db.commit()
-    return jsonify({"id": cur.lastrowid, "title": title, "message": "Saved"})
-
-
-@app.route("/api/snippets/<int:snippet_id>", methods=["DELETE"])
-def delete_snippet(snippet_id):
-    db = get_db()
-    db.execute("DELETE FROM snippets WHERE id = ?", (snippet_id,))
-    db.commit()
-    return jsonify({"message": "Deleted"})
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
