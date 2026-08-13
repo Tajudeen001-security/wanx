@@ -1,6 +1,6 @@
 # WanX Parser – Original syntax
-# Structure: probe ... path ... shadow ... close
-# Version 0.3 – Functions, loops, lists, logical ops for full system & AI building
+# Version 0.4 – Forge Edition
+# Created by JagX and JRILICENSE
 
 from lexer import TokenType
 
@@ -52,19 +52,25 @@ class BlockNode:
     def __init__(self, statements):
         self.statements = statements
 
-class WeaveNode:          # function definition
+class WeaveNode:
     def __init__(self, name, params, body):
         self.name = name
         self.params = params
         self.body = body
 
-class EmitNode:           # return
+class EmitNode:
     def __init__(self, value=None):
         self.value = value
 
-class OrbitNode:          # while loop
+class OrbitNode:
     def __init__(self, condition, body):
         self.condition = condition
+        self.body = body
+
+class ScanNode:          # for-each
+    def __init__(self, collection, var_name, body):
+        self.collection = collection
+        self.var_name = var_name
         self.body = body
 
 class BreakNode:
@@ -73,25 +79,33 @@ class BreakNode:
 class ContinueNode:
     pass
 
-class CallNode:           # function call
+class CallNode:
     def __init__(self, callee, args):
         self.callee = callee
         self.args = args
 
-class ListNode:           # list literal
+class ListNode:
     def __init__(self, elements):
         self.elements = elements
 
-class IndexNode:          # list[index]
+class VaultNode:         # dictionary
+    def __init__(self, pairs):
+        self.pairs = pairs   # list of (key_node, value_node)
+
+class IndexNode:
     def __init__(self, collection, index):
         self.collection = collection
         self.index = index
 
-class IndexAssignNode:    # list[index] = value
+class IndexAssignNode:
     def __init__(self, collection, index, value):
         self.collection = collection
         self.index = index
         self.value = value
+
+class SummonNode:
+    def __init__(self, path):
+        self.path = path
 
 
 # ---------- Parser ----------
@@ -164,7 +178,6 @@ class Parser:
             return WeaveNode(name, params, BlockNode(body_stmts))
 
         if self.match(TokenType.EMIT):
-            # emit with optional value
             if self.current().type in (TokenType.NEWLINE, TokenType.CLOSE, TokenType.EOF,
                                        TokenType.SHADOW, TokenType.PATH, TokenType.BREAK,
                                        TokenType.CONTINUE):
@@ -181,10 +194,26 @@ class Parser:
             self.expect(TokenType.CLOSE)
             return OrbitNode(condition, BlockNode(body_stmts))
 
+        if self.match(TokenType.SCAN):
+            collection = self.expression()
+            self.expect(TokenType.AS)
+            var_name = self.expect(TokenType.IDENTIFIER).value
+            self.skip_newlines()
+            body_stmts = []
+            while self.current().type not in (TokenType.CLOSE, TokenType.EOF):
+                body_stmts.append(self.statement())
+                self.skip_newlines()
+            self.expect(TokenType.CLOSE)
+            return ScanNode(collection, var_name, BlockNode(body_stmts))
+
         if self.match(TokenType.BREAK):
             return BreakNode()
         if self.match(TokenType.CONTINUE):
             return ContinueNode()
+
+        if self.match(TokenType.SUMMON):
+            path = self.expect(TokenType.STRING).value
+            return SummonNode(path)
 
         if self.match(TokenType.PROBE):
             condition = self.expression()
@@ -338,6 +367,7 @@ class Parser:
         if self.match(TokenType.IDENTIFIER):
             return VarNode(token.value)
 
+        # list [ ... ]
         if self.match(TokenType.LBRACKET):
             elements = []
             if not self.match(TokenType.RBRACKET):
@@ -346,6 +376,23 @@ class Parser:
                     elements.append(self.expression())
                 self.expect(TokenType.RBRACKET)
             return ListNode(elements)
+
+        # vault { key : value, ... }
+        if self.match(TokenType.VAULT):
+            self.expect(TokenType.LBRACE)
+            pairs = []
+            if not self.match(TokenType.RBRACE):
+                key = self.expression()
+                self.expect(TokenType.COLON)
+                value = self.expression()
+                pairs.append((key, value))
+                while self.match(TokenType.COMMA):
+                    key = self.expression()
+                    self.expect(TokenType.COLON)
+                    value = self.expression()
+                    pairs.append((key, value))
+                self.expect(TokenType.RBRACE)
+            return VaultNode(pairs)
 
         if self.match(TokenType.LPAREN):
             expr = self.expression()
