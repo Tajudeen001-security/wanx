@@ -1,6 +1,7 @@
 # WanX Lexer – Completely Original Vocabulary
 # Keywords chosen to avoid resemblance to any major programming language
-# Version 0.3 – Expanded for full systems & AI construction capability
+# Version 0.4 – Forge Edition – Built for complex systems, apps, games, websites & AI
+# Created by JagX and JRILICENSE
 
 from enum import Enum, auto
 
@@ -35,7 +36,7 @@ class TokenType(Enum):
     DOT        = auto()
     COLON      = auto()
 
-    # Original Keywords (core)
+    # Original Core Keywords
     PULSE      = auto()   # print / output
     FORGE      = auto()   # variable declaration
     PROBE      = auto()   # if
@@ -45,17 +46,24 @@ class TokenType(Enum):
     YES        = auto()   # true
     NO         = auto()   # false
 
-    # New original keywords for power
+    # Power Keywords (still completely original)
     WEAVE      = auto()   # function definition
-    EMIT       = auto()   # return from function
+    EMIT       = auto()   # return
     ORBIT      = auto()   # while loop
-    BREAK      = auto()   # break from loop
-    CONTINUE   = auto()   # continue loop
-    AND        = auto()   # logical and
-    OR         = auto()   # logical or
-    NOT        = auto()   # logical not
+    SCAN       = auto()   # for-each loop
+    AS         = auto()   # used with scan
+    BREAK      = auto()
+    CONTINUE   = auto()
+    AND        = auto()
+    OR         = auto()
+    NOT        = auto()
+    VAULT      = auto()   # dictionary / map
+    SUMMON     = auto()   # import / load another file
+    UNLOCK     = auto()   # open file
+    GATHER     = auto()   # read
+    INSCRIBE   = auto()   # write
+    SEAL       = auto()   # close file
 
-    # Structural
     NEWLINE    = auto()
     EOF        = auto()
 
@@ -84,11 +92,19 @@ KEYWORDS = {
     "weave":    TokenType.WEAVE,
     "emit":     TokenType.EMIT,
     "orbit":    TokenType.ORBIT,
+    "scan":     TokenType.SCAN,
+    "as":       TokenType.AS,
     "break":    TokenType.BREAK,
     "continue": TokenType.CONTINUE,
     "and":      TokenType.AND,
     "or":       TokenType.OR,
     "not":      TokenType.NOT,
+    "vault":    TokenType.VAULT,
+    "summon":   TokenType.SUMMON,
+    "unlock":   TokenType.UNLOCK,
+    "gather":   TokenType.GATHER,
+    "inscribe": TokenType.INSCRIBE,
+    "seal":     TokenType.SEAL,
 }
 
 
@@ -121,7 +137,6 @@ class Lexer:
             if char in ' \t\r':
                 self.advance()
             elif char == ':' and self.peek(1) == ':':
-                # :: comment until end of line
                 self.advance()
                 self.advance()
                 while self.peek() not in '\n\0':
@@ -158,18 +173,18 @@ class Lexer:
             self.add_token(token_type)
 
     def string(self):
-        self.advance()  # consume opening "
+        self.advance()
         start = self.pos
         while self.peek() not in '"\0':
             if self.peek() == '\n':
                 self.line += 1
             if self.peek() == '\\':
-                self.advance()  # skip escape for now, keep simple
+                self.advance()
             self.advance()
         if self.peek() == '\0':
             raise SyntaxError(f"Unterminated string on line {self.line}")
         value = self.source[start:self.pos]
-        self.advance()  # closing "
+        self.advance()
         self.add_token(TokenType.STRING, value)
 
     def tokenize(self):
@@ -197,7 +212,6 @@ class Lexer:
                 self.string()
                 continue
 
-            # Two-character operators
             if char == '=' and self.peek(1) == '=':
                 self.advance(); self.advance()
                 self.add_token(TokenType.EQEQ)
@@ -215,7 +229,6 @@ class Lexer:
                 self.add_token(TokenType.GTE)
                 continue
 
-            # Single-character
             single = {
                 '+': TokenType.PLUS,
                 '-': TokenType.MINUS,
