@@ -1,6 +1,5 @@
 # WanX Interpreter – Version 0.5 Titan Edition + Defensive Security Helpers
 # Completely original language by JagX and JRILICENSE
-# Classes, systems, apps, games, web backends, AI and defensive security tools
 
 from parser import (
     NumberNode, StringNode, BoolNode, VarNode,
@@ -132,7 +131,8 @@ class Interpreter:
             try:
                 if isinstance(x, str) and "." in x: return float(x)
                 return int(x)
-            except: raise RuntimeError(f"Cannot convert {x} to number")
+            except:
+                raise RuntimeError(f"Cannot convert {x} to number")
         def builtin_float(x): return float(x)
         def builtin_int(x): return int(x)
 
@@ -190,14 +190,14 @@ class Interpreter:
 
         def builtin_dot(a, b):
             if len(a) != len(b): raise RuntimeError("dot requires equal length")
-            return sum(x*y for x,y in zip(a,b))
+            return sum(x * y for x, y in zip(a, b))
         def builtin_scale(lst, factor): return [x * factor for x in lst]
         def builtin_addvec(a, b):
             if len(a) != len(b): raise RuntimeError("vectors must match length")
-            return [x+y for x,y in zip(a,b)]
+            return [x + y for x, y in zip(a, b)]
         def builtin_subvec(a, b):
             if len(a) != len(b): raise RuntimeError("vectors must match length")
-            return [x-y for x,y in zip(a,b)]
+            return [x - y for x, y in zip(a, b)]
 
         def builtin_unlock(path, mode="r"):
             try:
@@ -205,18 +205,22 @@ class Interpreter:
             except Exception as e:
                 raise RuntimeError(f"Cannot unlock file: {e}")
         def builtin_gather(f):
-            try: return f.read()
-            except Exception as e: raise RuntimeError(f"Cannot gather: {e}")
+            try:
+                return f.read()
+            except Exception as e:
+                raise RuntimeError(f"Cannot gather: {e}")
         def builtin_inscribe(f, text):
             try:
                 f.write(str(text))
                 return None
-            except Exception as e: raise RuntimeError(f"Cannot inscribe: {e}")
+            except Exception as e:
+                raise RuntimeError(f"Cannot inscribe: {e}")
         def builtin_seal(f):
             try:
                 f.close()
                 return None
-            except Exception as e: raise RuntimeError(f"Cannot seal: {e}")
+            except Exception as e:
+                raise RuntimeError(f"Cannot seal: {e}")
 
         def builtin_tojson(obj): return json.dumps(obj)
         def builtin_fromjson(s): return json.loads(s)
@@ -243,7 +247,7 @@ class Interpreter:
                 raise RuntimeError(f"fetch failed: {e}")
 
         def builtin_distance(x1, y1, x2, y2):
-            return math.sqrt((x2-x1)**2 + (y2-y1)**2)
+            return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         def builtin_collide(x1, y1, w1, h1, x2, y2, w2, h2):
             return (x1 < x2 + w2 and x1 + w1 > x2 and
                     y1 < y2 + h2 and y1 + h1 > y2)
@@ -438,4 +442,105 @@ class Interpreter:
             raise RuntimeError(f"Index error: {e}")
 
     def visit_PulseNode(self, node, env):
-        value = self.visit(node
+        value = self.visit(node.expr, env)
+        print(value)
+        return value
+
+    def visit_ProbeNode(self, node, env):
+        condition = self.visit(node.condition, env)
+        if condition:
+            return self.visit(node.path_branch, env)
+        elif node.shadow_branch:
+            return self.visit(node.shadow_branch, env)
+        return None
+
+    def visit_OrbitNode(self, node, env):
+        result = None
+        while self.visit(node.condition, env):
+            try:
+                result = self.visit(node.body, env)
+            except BreakSignal:
+                break
+            except ContinueSignal:
+                continue
+        return result
+
+    def visit_ScanNode(self, node, env):
+        collection = self.visit(node.collection, env)
+        result = None
+        if isinstance(collection, dict):
+            collection = list(collection.items())
+        for item in collection:
+            env.define(node.var_name, item)
+            try:
+                result = self.visit(node.body, env)
+            except BreakSignal:
+                break
+            except ContinueSignal:
+                continue
+        return result
+
+    def visit_BreakNode(self, node, env):
+        raise BreakSignal()
+
+    def visit_ContinueNode(self, node, env):
+        raise ContinueSignal()
+
+    def visit_BlockNode(self, node, env):
+        result = None
+        for stmt in node.statements:
+            result = self.visit(stmt, env)
+        return result
+
+    def visit_WeaveNode(self, node, env):
+        fn = Function(node.name, node.params, node.body, env)
+        env.define(node.name, fn)
+        return fn
+
+    def visit_EmitNode(self, node, env):
+        value = None
+        if node.value is not None:
+            value = self.visit(node.value, env)
+        raise ReturnValue(value)
+
+    def visit_SummonNode(self, node, env):
+        path = node.path
+        if path in self.loaded_modules:
+            return None
+        if not os.path.exists(path):
+            raise RuntimeError(f"Cannot summon: file '{path}' not found")
+        with open(path, "r", encoding="utf-8") as f:
+            source = f.read()
+        from lexer import Lexer
+        from parser import Parser
+        lexer = Lexer(source)
+        tokens = lexer.tokenize()
+        parser = Parser(tokens)
+        ast = parser.parse()
+        self.loaded_modules.add(path)
+        return self.visit(ast, env)
+
+    def visit_FormNode(self, node, env):
+        methods = []
+        for m in node.methods:
+            fn = Function(m.name, m.params, m.body, env)
+            methods.append(fn)
+        form = Form(node.name, methods)
+        form.methods = {m.name: m for m in methods}
+        env.define(node.name, form)
+        return form
+
+    def visit_NewNode(self, node, env):
+        form = env.get(node.class_name)
+        if not isinstance(form, Form):
+            raise RuntimeError(f"'{node.class_name}' is not a form")
+        instance = Instance(form)
+        if "init" in form.methods:
+            method = form.methods["init"]
+            args = [self.visit(a, env) for a in node.args]
+            local = Environment(parent=method.closure)
+            local.define("core", instance)
+            for param, arg in zip(method.params, args):
+                local.define(param, arg)
+            try:
+                s
