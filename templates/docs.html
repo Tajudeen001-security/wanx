@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Learn WanX{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+    <aside class="docs-sidebar">
+        <h4>Contents</h4>
+        <a href="#intro">Introduction</a>
+        <a href="#keywords">Keywords</a>
+        <a href="#basics">Basics</a>
+        <a href="#control">Control Flow</a>
+        <a href="#functions">Functions</a>
+        <a href="#lists">Lists & Vaults</a>
+        <a href="#classes">Classes</a>
+        <a href="#builtins">Built-ins</a>
+        <a href="#examples">Examples</a>
+    </aside>
+
+    <div class="docs-content">
+        <h2 id="intro">Introduction</h2>
+        <p>WanX is an original programming language created by <strong>JagX</strong> and <strong>JRILICENSE</strong>. It uses a completely unique vocabulary and does not copy Python, JavaScript, C++, or other major languages.</p>
+        <p>It is designed to be powerful enough to build systems, applications, game logic, and AI foundations.</p>
+
+        <h2 id="keywords">Unique Keywords</h2>
+        <table class="keyword-table">
+            <tr><th>Action</th><th>Keyword</th></tr>
+            <tr><td>Print / Output</td><td><code>pulse</code></td></tr>
+            <tr><td>Create variable</td><td><code>forge</code></td></tr>
+            <tr><td>If</td><td><code>probe</code></td></tr>
+            <tr><td>Then</td><td><code>path</code></td></tr>
+            <tr><td>Else</td><td><code>shadow</code></td></tr>
+            <tr><td>End block</td><td><code>close</code></td></tr>
+            <tr><td>True / False</td><td><code>yes</code> / <code>no</code></td></tr>
+            <tr><td>Function</td><td><code>weave</code></td></tr>
+            <tr><td>Return</td><td><code>emit</code></td></tr>
+            <tr><td>While loop</td><td><code>orbit</code></td></tr>
+            <tr><td>For-each</td><td><code>scan ... as ...</code></td></tr>
+            <tr><td>Dictionary</td><td><code>vault { }</code></td></tr>
+            <tr><td>Class</td><td><code>form</code></td></tr>
+            <tr><td>New instance</td><td><code>new</code></td></tr>
+            <tr><td>Self</td><td><code>core</code></td></tr>
+            <tr><td>Comments</td><td><code>::</code></td></tr>
+        </table>
+
+        <h2 id="basics">Basics</h2>
+        <pre class="code-block">:: Comments start with ::
+pulse "Hello WanX"
+
+forge x = 42
+forge name = "Aria"
+pulse name + " is " + str(x)</pre>
+
+        <h2 id="control">Control Flow</h2>
+        <pre class="code-block">forge score = 78
+
+probe score >= 90 path
+    pulse "Excellent"
+shadow
+    probe score >= 70 path
+        pulse "Good job"
+    shadow
+        pulse "Keep going"
+    close
+close
+
+forge i = 0
+orbit i < 5
+    pulse i
+    forge i = i + 1
+close</pre>
+
+        <h2 id="functions">Functions</h2>
+        <pre class="code-block">weave add(a, b)
+    emit a + b
+close
+
+pulse add(10, 32)
+
+weave greet(who)
+    pulse "Hello, " + who
+close
+greet("Learner")</pre>
+
+        <h2 id="lists">Lists & Vaults</h2>
+        <pre class="code-block">forge nums = [1, 2, 3, 4]
+pulse nums[0]
+push(nums, 5)
+pulse len(nums)
+
+forge player = vault {
+    "name" : "Hero",
+    "hp" : 100
+}
+pulse player["name"]
+player["hp"] = 90</pre>
+
+        <h2 id="classes">Classes (form)</h2>
+        <pre class="code-block">form Player
+    weave init(name, hp)
+        core.name = name
+        core.hp = hp
+    close
+    weave status()
+        pulse core.name + " has " + str(core.hp) + " HP"
+    close
+close
+
+forge p = new Player("Aria", 100)
+p.status()</pre>
+
+        <h2 id="builtins">Useful Built-ins</h2>
+        <ul>
+            <li><strong>Math:</strong> abs, sqrt, pow, sin, cos, floor, ceil, min, max, sum, pi, e</li>
+            <li><strong>Lists:</strong> len, push, pop, slice</li>
+            <li><strong>Strings:</strong> upper, lower, split, join, replace, contains, trim</li>
+            <li><strong>Vaults:</strong> keys, values, has</li>
+            <li><strong>Game:</strong> distance, collide</li>
+            <li><strong>Other:</strong> type, str, num, random, randint, time, sleep, fetch, tojson, fromjson</li>
+        </ul>
+
+        <h2 id="examples">Try It</h2>
+        <p>Go to the <a href="/playground" style="color:var(--accent)">Playground</a> to run any of these examples live and experiment with your own code.</p>
+    </div>
+</div>
+{% endblock %}
