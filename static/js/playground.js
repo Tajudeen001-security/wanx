@@ -16,7 +16,11 @@ const exampleNames = [
     { id: "lists", label: "Lists" },
     { id: "vault", label: "Vault" },
     { id: "classes", label: "Classes" },
-    { id: "ai", label: "AI Demo" }
+    { id: "ai", label: "AI Demo" },
+    { id: "integrity", label: "Integrity" },
+    { id: "httpcheck", label: "HTTP Check" },
+    { id: "logging", label: "Logging" },
+    { id: "hashdemo", label: "Hashing" }
 ];
 
 let examples = {};
@@ -151,7 +155,6 @@ async function deleteSnippet(id) {
     loadSnippets();
 }
 
-// Make functions available to onclick
 window.loadSnippet = loadSnippet;
 window.deleteSnippet = deleteSnippet;
 
